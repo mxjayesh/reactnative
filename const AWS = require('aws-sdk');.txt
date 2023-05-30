@@ -1,0 +1,98 @@
+const AWS = require('aws-sdk');
+const config = require('../../config/config.json');
+const ecode = require("./error_code.json");
+// "s3":{
+//     "keyid":"AKIAUQSOU3BBEYTLZL56",
+//     "accesskey":"k3fH2hmRcrVdbRvrKDwCFlF1mwnseqLIa2vrIiRa",
+//     "region":"ap-south-1",
+//     "bucketname":"spwapp",
+//     "folder":{
+//         "material":"material"
+//     }
+AWS.config.update({
+    accessKeyId: config.s3.keyid,
+    secretAccessKey: config.s3.accesskey,
+    region: config.s3.region 
+});
+const s3 = new AWS.S3({ params: {Bucket: config.s3.bucketname} });
+
+const s3Fileupload = (obj)=>{
+    const buffer = Buffer.from(obj.fileData.replace(/^data:image\/\w+;base64,/, ""),'base64');
+    var s3object = {
+        Key: obj.folderName+'/'+obj.fileName, 
+        Body: buffer,
+        ContentEncoding: 'base64',
+        ContentType: obj.fileFormat   //'image/jpeg'
+    };
+    return new Promise((resolve,reject)=>{
+        s3.putObject(s3object, function(err, data){
+            if (err) { 
+              reject(new Error({ success:false,message:ecode.SYSA0701.msg,errorCode:ecode.SYSA0701.code, data:{} }))
+            } else {
+              const final = _.omit(obj,'fileData');
+              resolve(final)
+            }
+        });
+    })
+}
+
+const s3FilereadStaticURL = (path) =>{
+   return `https://${config.s3.bucketname}.s3.${config.s3.region}.amazonaws.com/${path}`   
+}
+
+const s2Filedelete = (obj) => {
+    var s3object = {
+        Key : obj.fileName
+    }
+    return new Promise((resolve,reject)=>{
+        s3.deleteObject(s3object,function(err,data){
+            if (err) { 
+                reject(new Error({ success:false,message:ecode.SYSA0702.msg,errorCode:ecode.SYSA0702.code, data:{} }))
+              } else {
+                console.log(data)
+                resolve(true)
+              }
+        })
+    })
+}
+
+// const s3Fileread=(obj)=>{
+//     var s3object = {
+//         Key: obj.fileName, 
+//     }
+//     s3.getObject(s3object,function(err,data){
+//         if (err) { 
+//             console.log(err)
+//           } else {
+
+//             const body = Buffer.from(data.Body).toString('utf8');
+//             console.log(body)
+//           }
+//     })
+// }
+
+
+module.exports = {
+    s3Fileupload:s3Fileupload,
+    s3FilereadStaticURL:s3FilereadStaticURL,
+    s2Filedelete:s2Filedelete
+}
+
+
+
+
+
+
+
+{
+    "materialname":"jk",
+    "isactive":1,
+    "materialicon":{
+        "fileData": "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",
+        "fileExtension": "png",
+        "fileName": "putStatic.png",
+        "fileSize": 44055,
+        "fileType": "image/png"
+    }
+    
+}
